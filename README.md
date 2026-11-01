@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # CloudVault
 
 CloudVault is a college mini project demonstrating a cloud-storage-style interface. The React dashboard talks to a FastAPI API. It supports local storage during development and Amazon S3 when configured.
@@ -75,3 +76,7 @@ $env:AWS_REGION="us-east-1"
 ```
 
 Configure AWS credentials with the AWS CLI or another supported SDK credential source. Do not put access keys in the frontend or commit them to the project. Restart the backend after changing these values. The existing UI will then upload, list, download, and delete objects through S3.
+=======
+# cloudvault
+Cloud-Based File Storage and Sharing System
+>>>>>>> 29acd4d4c4f2a731fd52b23663391f75efcbad85
