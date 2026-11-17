@@ -1,4 +1,6 @@
-const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+// Same-origin Vercel deployments already expose the API under /api.
+// Keep the base empty so endpoint paths are not duplicated as /api/api/...
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "";
 
 async function request(path, options) {
   let response;
