@@ -1,26 +1,6 @@
 import { Cloud, FolderClosed, HardDrive } from "lucide-react";
-import { useEffect, useState } from "react";
 
-export default function Sidebar({ activeView, onChangeView }) {
-  const [storage, setStorage] = useState({ label: "Checking storage...", detail: "" });
-
-  useEffect(() => {
-    fetch("/api/health")
-      .then((response) => response.json())
-      .then((data) => {
-        const label = data.storage || "Local server";
-        setStorage({
-          label,
-          detail: label === "Private GitHub repository"
-            ? "Files are stored in your configured private GitHub repository."
-            : label === "Amazon S3"
-              ? "Files are stored in your configured S3 bucket."
-              : "Files are stored locally until cloud storage is configured.",
-        });
-      })
-      .catch(() => setStorage({ label: "Storage unavailable", detail: "Start the CloudVault backend to check storage." }));
-  }, []);
-
+export default function Sidebar({ activeView, onChangeView, storageStatus }) {
   const items = [
     { id: "all", label: "All files", icon: FolderClosed },
     { id: "recent", label: "Recent", icon: HardDrive },
@@ -60,8 +40,8 @@ export default function Sidebar({ activeView, onChangeView }) {
 
       <div className="mt-auto hidden rounded-2xl bg-slate-50 p-4 md:mt-10 md:block">
         <p className="text-xs font-semibold text-slate-600">Storage location</p>
-        <p className="mt-1 text-sm font-bold text-ink">{storage.label}</p>
-        <p className="mt-2 text-[11px] leading-5 text-slate-400">{storage.detail}</p>
+        <p className="mt-1 text-sm font-bold text-ink">{storageStatus.storage}</p>
+        <p className="mt-2 text-[11px] leading-5 text-slate-400">{storageStatus.detail}</p>
       </div>
     </aside>
   );

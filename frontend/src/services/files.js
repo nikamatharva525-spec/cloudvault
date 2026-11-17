@@ -3,16 +3,31 @@ const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 async function request(path, options) {
   let response;
   try {
-    response = await fetch(`${API_BASE}${path}`, options);
+    const headers = new Headers(options?.headers);
+    headers.set("X-Requested-With", "XMLHttpRequest");
+    response = await fetch(`${API_BASE}${path}`, {
+      ...options,
+      headers,
+      credentials: "include",
+    });
   } catch {
     throw new Error("Could not reach CloudVault. Check that the backend is running.");
   }
 
   if (!response.ok) {
+    if (response.status === 401 && path !== "/api/auth/login") {
+      window.dispatchEvent(new Event("cloudvault:session-expired"));
+    }
     let message = `Request failed (${response.status}).`;
     try {
       const body = await response.json();
       if (typeof body.detail === "string") message = body.detail;
+      else if (Array.isArray(body.detail)) {
+        message = body.detail
+          .map((item) => item?.msg)
+          .filter(Boolean)
+          .join(" ") || message;
+      }
     } catch {
       // Keep the HTTP status message when the server does not return JSON.
     }
@@ -22,18 +37,97 @@ async function request(path, options) {
   return response;
 }
 
-export async function listFiles() {
-  const response = await request("/files");
+export async function getAuthStatus() {
+  const response = await request("/api/auth/status");
   return response.json();
 }
 
-export async function uploadFile(file, onProgress) {
-  return new Promise((resolve, reject) => {
+export async function login(email, password) {
+  const response = await request("/api/auth/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return response.json();
+}
+
+export async function register(email, password) {
+  const response = await request("/api/auth/register", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  return response.json();
+}
+
+export async function logout() {
+  await request("/api/auth/logout", { method: "POST" });
+}
+
+export async function listFiles() {
+  const response = await request("/api/files");
+  return response.json();
+}
+
+export async function getStorageStatus() {
+  const response = await request("/api/storage/status");
+  return response.json();
+}
+
+export async function uploadFile(file, onProgress, storageBackend) {
+  if (!["local", "github", "s3"].includes(storageBackend)) {
+    throw new Error("The storage backend is not ready yet.");
+  }
+  if (storageBackend === "local" || storageBackend === "github") {
     const body = new FormData();
     body.append("file", file);
+    const responseText = await sendFile(`${API_BASE}/api/files`, {
+      method: "POST",
+      headers: { "X-Requested-With": "XMLHttpRequest" },
+      body,
+      withCredentials: true,
+      onProgress,
+      errorMessage: "Could not reach CloudVault. Check that the backend is running.",
+    });
+    try {
+      return JSON.parse(responseText);
+    } catch {
+      throw new Error("The server returned an invalid upload response.");
+    }
+  }
 
+  const response = await request("/api/uploads/presign", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      filename: file.name,
+      size: file.size,
+      content_type: file.type || "application/octet-stream",
+    }),
+  });
+  const upload = await response.json();
+
+  await sendFile(upload.upload_url, {
+    method: "PUT",
+    headers: upload.headers,
+    body: file,
+    onProgress,
+    errorMessage: "Could not upload the file to S3. Check the bucket CORS configuration.",
+  });
+  const completed = await request(`/api/uploads/${encodeURIComponent(upload.id)}/complete`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ size: file.size }),
+  });
+  return completed.json();
+}
+
+function sendFile(url, { method, headers, body, withCredentials = false, onProgress, errorMessage }) {
+  return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_BASE}/upload`);
+    xhr.open(method, url);
+    xhr.withCredentials = withCredentials;
+    for (const [name, value] of Object.entries(headers)) xhr.setRequestHeader(name, value);
     xhr.upload.addEventListener("progress", (event) => {
       if (event.lengthComputable) {
         onProgress?.(event.loaded, event.total);
@@ -52,14 +146,10 @@ export async function uploadFile(file, onProgress) {
         return;
       }
 
-      try {
-        resolve(JSON.parse(xhr.responseText));
-      } catch {
-        reject(new Error("The server returned an invalid upload response."));
-      }
+      resolve(xhr.responseText);
     });
     xhr.addEventListener("error", () => {
-      reject(new Error("Could not reach CloudVault. Check that the backend is running."));
+      reject(new Error(errorMessage));
     });
     xhr.addEventListener("abort", () => reject(new Error("Upload was cancelled.")));
     xhr.send(body);
@@ -67,17 +157,23 @@ export async function uploadFile(file, onProgress) {
 }
 
 export async function deleteFile(id) {
-  await request(`/files/${encodeURIComponent(id)}`, { method: "DELETE" });
+  await request(`/api/files/${encodeURIComponent(id)}`, { method: "DELETE" });
 }
 
-export async function downloadFile(id, filename) {
-  const response = await request(`/download/${encodeURIComponent(id)}`);
-  const objectUrl = URL.createObjectURL(await response.blob());
+export async function downloadFile(id, filename, storageBackend) {
+  let url;
+  if (storageBackend === "s3") {
+    const response = await request(`/api/files/${encodeURIComponent(id)}/download-url`);
+    ({ url } = await response.json());
+  } else {
+    const response = await request(`/api/files/${encodeURIComponent(id)}/download`);
+    url = URL.createObjectURL(await response.blob());
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
   const link = document.createElement("a");
-  link.href = objectUrl;
+  link.href = url;
   link.download = filename;
   document.body.appendChild(link);
   link.click();
   link.remove();
-  window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
 }

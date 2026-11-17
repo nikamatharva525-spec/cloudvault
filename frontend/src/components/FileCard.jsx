@@ -47,10 +47,12 @@ export function formatFileSize(bytes) {
 }
 
 export function formatUploadDate(value) {
+  const date = new Date(value);
+  if (!value || Number.isNaN(date.getTime())) return "Date unavailable";
   return new Intl.DateTimeFormat(undefined, {
     dateStyle: "medium",
     timeStyle: "short",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 export default function FileCard({ file, onDownload, onDelete, downloading }) {

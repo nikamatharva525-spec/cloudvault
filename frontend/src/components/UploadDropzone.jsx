@@ -53,7 +53,7 @@ export default function UploadDropzone({ disabled, onFilesSelected }) {
           browse
         </button>
       </p>
-      <p className="mt-1 text-xs text-slate-400">Maximum file size: 100 MB each</p>
+      <p className="mt-1 text-xs text-slate-400">Maximum file size: 100 MiB each</p>
     </div>
   );
 }

@@ -1,6 +1,7 @@
 # Dependencies and build output
 node_modules/
 frontend/dist/
+frontend/.vite/
 __pycache__/
 *.py[cod]
 .venv/
@@ -15,9 +16,12 @@ backend/uploads/.*.part
 .env
 .env.*
 !.env.example
+.auth.json
+backend/.auth.json
 
 # Editor and OS files
 .vscode/
 .idea/
 .DS_Store
 Thumbs.db
+.vercel

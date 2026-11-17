@@ -1,9 +1,17 @@
 {
-  "buildCommand": "npm run build",
+  "framework": "vite",
+  "installCommand": "npm --prefix frontend ci",
+  "buildCommand": "npm --prefix frontend run build",
   "outputDirectory": "frontend/dist",
-  "installCommand": "npm install && npm install --prefix frontend",
+  "functions": {
+    "api/index.py": {
+      "maxDuration": 30
+    }
+  },
   "rewrites": [
-    { "source": "/api/:path*", "destination": "/api/index.js" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    {
+      "source": "/api/:path*",
+      "destination": "/api/index.py"
+    }
   ]
 }
